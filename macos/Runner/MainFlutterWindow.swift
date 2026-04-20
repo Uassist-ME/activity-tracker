@@ -12,6 +12,9 @@ class MainFlutterWindow: NSWindow {
     self.center()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    FocusTrackerPlugin.register(
+      with: flutterViewController.registrar(forPlugin: "FocusTrackerPlugin")
+    )
 
     super.awakeFromNib()
   }
