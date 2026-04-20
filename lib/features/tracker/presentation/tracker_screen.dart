@@ -1,9 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import 'package:activity_tracker/features/auth/data/auth_storage.dart';
 import 'package:activity_tracker/features/auth/presentation/login_screen.dart';
+import 'package:activity_tracker/features/tracker/application/activity_tracker_controller.dart';
+import 'package:activity_tracker/features/tracker/presentation/widgets/activity_list.dart';
 
 class TrackerScreen extends StatefulWidget {
   const TrackerScreen({super.key});
@@ -13,18 +13,23 @@ class TrackerScreen extends StatefulWidget {
 }
 
 class _TrackerScreenState extends State<TrackerScreen> {
-  static const _green = Color(0xFF4CAF50);
-  static const _red = Color(0xFFE53935);
+  static const _accent = Color(0xFFBFC7FF);
 
   final _storage = AuthStorage();
+  final _controller = ActivityTrackerController();
 
-  Duration _baseElapsed = Duration.zero;
-  DateTime? _startedAt;
-  Timer? _ticker;
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onControllerChanged);
+  }
+
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _logout() async {
-    _ticker?.cancel();
-    _ticker = null;
+    await _controller.stop();
     await _storage.clearToken();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
@@ -32,55 +37,31 @@ class _TrackerScreenState extends State<TrackerScreen> {
     );
   }
 
-  bool get _running => _startedAt != null;
-
-  Duration get _currentElapsed {
-    final start = _startedAt;
-    if (start == null) return _baseElapsed;
-    return _baseElapsed + DateTime.now().difference(start);
-  }
-
-  void _toggle() {
-    setState(() {
-      if (_running) {
-        _baseElapsed = _currentElapsed;
-        _startedAt = null;
-        _ticker?.cancel();
-        _ticker = null;
-      } else {
-        _startedAt = DateTime.now();
-        _ticker = Timer.periodic(
-          const Duration(seconds: 1),
-          (_) => setState(() {}),
-        );
-      }
-    });
-  }
-
-  String _format(Duration d) {
-    String two(int n) => n.toString().padLeft(2, '0');
-    final h = two(d.inHours);
-    final m = two(d.inMinutes.remainder(60));
-    final s = two(d.inSeconds.remainder(60));
-    return '$h:$m:$s';
+  Future<void> _toggle() async {
+    if (_controller.isRunning) {
+      await _controller.stop();
+    } else {
+      await _controller.start();
+    }
   }
 
   @override
   void dispose() {
-    _ticker?.cancel();
+    _controller.removeListener(_onControllerChanged);
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final elapsed = _format(_currentElapsed);
-    final buttonColor = _running ? _red : _green;
-    final buttonLabel = _running ? 'STOP' : 'START';
+    final running = _controller.isRunning;
+    final events = _controller.visibleEvents;
+    final count = _controller.activityCount;
 
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: const Text('Projects & Tasks'),
+        title: const Text('App Tracking'),
         actions: [
           IconButton(
             tooltip: 'Log out',
@@ -89,45 +70,100 @@ class _TrackerScreenState extends State<TrackerScreen> {
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 48),
-          child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  elapsed,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 56,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton(
-                  onPressed: _toggle,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: buttonColor,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  child: Text(buttonLabel),
-                ),
-              ],
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _TrackToggleButton(
+                running: running,
+                color: _accent,
+                onPressed: _toggle,
+              ),
             ),
-          ),
+            const SizedBox(height: 16),
+            _StatusBanner(running: running, count: count),
+            const SizedBox(height: 16),
+            Expanded(
+              child: SingleChildScrollView(
+                child: ActivityList(events: events),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _TrackToggleButton extends StatelessWidget {
+  const _TrackToggleButton({
+    required this.running,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final bool running;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = running ? 'Stop Tracking' : 'Start Tracking';
+    final icon = running ? Icons.stop : Icons.play_arrow;
+    return TextButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, color: Colors.black87),
+      label: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      style: TextButton.styleFrom(
+        backgroundColor: color,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: const StadiumBorder(),
+      ),
+    );
+  }
+}
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({required this.running, required this.count});
+
+  final bool running;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = running ? 'Tracking in progress' : 'Tracking finished';
+    final icon = running ? Icons.radio_button_checked : Icons.check_circle_outline;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.white70),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          const Spacer(),
+          Text(
+            '$count ${count == 1 ? 'activity recorded' : 'activities recorded'}',
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+        ],
+      ),
     );
   }
 }
