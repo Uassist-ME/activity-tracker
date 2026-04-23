@@ -59,6 +59,7 @@ class _HeaderRow extends StatelessWidget {
         children: [
           SizedBox(width: 110, child: Text('App', style: style)),
           Expanded(child: Text('Detail', style: style)),
+          SizedBox(width: 160, child: Text('Domain', style: style)),
           SizedBox(width: 72, child: Text('Time', style: style, textAlign: TextAlign.right)),
         ],
       ),
@@ -93,6 +94,15 @@ class _ActivityRow extends StatelessWidget {
           Expanded(
             child: Text(
               event.detail,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+          SizedBox(
+            width: 160,
+            child: Text(
+              event.domain ?? '',
               style: const TextStyle(color: Colors.white, fontSize: 14),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,

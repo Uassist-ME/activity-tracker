@@ -13,12 +13,16 @@ class FocusSample {
 
   String get identity => '$app|$title|${url ?? ''}';
 
-  String get detail {
-    final cleaned = _stripAppSuffix(title);
-    if (url != null && url!.isNotEmpty) {
-      return cleaned.isEmpty ? url! : '$cleaned — $url';
-    }
-    return cleaned;
+  String get detail => _stripAppSuffix(title);
+
+  String? get domain {
+    final raw = url?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    final parsed = Uri.tryParse(raw);
+    if (parsed != null && parsed.host.isNotEmpty) return parsed.host;
+    final slash = raw.indexOf('/');
+    final head = slash < 0 ? raw : raw.substring(0, slash);
+    return head.isEmpty ? null : head;
   }
 
   static final _trailingAppRegex = RegExp(
