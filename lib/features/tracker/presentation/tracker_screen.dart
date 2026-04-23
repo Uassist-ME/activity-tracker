@@ -4,6 +4,7 @@ import 'package:activity_tracker/features/auth/data/auth_storage.dart';
 import 'package:activity_tracker/features/auth/presentation/login_screen.dart';
 import 'package:activity_tracker/features/tracker/application/activity_tracker_controller.dart';
 import 'package:activity_tracker/features/tracker/presentation/widgets/activity_list.dart';
+import 'package:activity_tracker/features/tracker/presentation/widgets/device_info_card.dart';
 
 class TrackerScreen extends StatefulWidget {
   const TrackerScreen({super.key});
@@ -75,6 +76,8 @@ class _TrackerScreenState extends State<TrackerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const DeviceInfoCard(),
+            const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerLeft,
               child: _TrackToggleButton(

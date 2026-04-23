@@ -64,7 +64,11 @@ class FocusTrackerChannel {
     final sample = await _macService.getActive();
     if (sample == null) return null;
     if (sample.appName.isEmpty && sample.windowTitle.isEmpty) return null;
-    return FocusSample(app: sample.appName, title: sample.windowTitle);
+    return FocusSample(
+      app: sample.appName,
+      title: sample.windowTitle,
+      url: sample.url,
+    );
   }
 
   Future<FocusSample?> _getFocusViaChannel() async {

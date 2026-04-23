@@ -1,10 +1,15 @@
 import 'dart:io';
 
 class ActiveWindowSample {
-  ActiveWindowSample({required this.appName, required this.windowTitle});
+  ActiveWindowSample({
+    required this.appName,
+    required this.windowTitle,
+    this.url,
+  });
 
   final String appName;
   final String windowTitle;
+  final String? url;
 }
 
 class ActiveWindowService {
@@ -18,7 +23,19 @@ class ActiveWindowService {
         set winTitle to ""
       end try
     end tell
-    return frontApp & "|||" & winTitle
+    set theURL to ""
+    try
+      if frontApp is "Safari" then
+        tell application "Safari" to set theURL to URL of current tab of front window
+      else if frontApp is in {"Google Chrome", "Google Chrome Canary", "Brave Browser", "Microsoft Edge", "Arc", "Vivaldi", "Opera"} then
+        using terms from application "Google Chrome"
+          tell application frontApp to set theURL to URL of active tab of front window
+        end using terms from
+      end if
+    on error
+      set theURL to ""
+    end try
+    return frontApp & "|||" & winTitle & "|||" & theURL
   ''';
 
   // A trivial query used to (a) probe whether Automation for System Events is
@@ -31,9 +48,11 @@ class ActiveWindowService {
     if (result == null) return null;
     final parts = result.split('|||');
     if (parts.length < 2) return null;
+    final url = parts.length >= 3 ? parts[2].trim() : '';
     return ActiveWindowSample(
       appName: parts[0].trim(),
       windowTitle: parts[1].trim(),
+      url: url.isEmpty ? null : url,
     );
   }
 
