@@ -17,6 +17,32 @@ class DeviceInfoSnapshot {
   final String os;
   final String osVersion;
   final String appVersion;
+
+  // Backend enum: desktop | laptop | tablet
+  String get apiType {
+    final t = type.toLowerCase();
+    if (t.contains('laptop') || t.contains('book')) return 'laptop';
+    if (t.contains('tablet') || t.contains('ipad')) return 'tablet';
+    return 'desktop';
+  }
+
+  // Backend enum: windows | macos | linux
+  String get apiOs {
+    final o = os.toLowerCase();
+    if (o.contains('mac')) return 'macos';
+    if (o.contains('windows')) return 'windows';
+    return 'linux';
+  }
+
+  Map<String, dynamic> toRegisterPayload() => {
+        'name': name,
+        'type': apiType,
+        'os': apiOs,
+        'osVersion': osVersion,
+        'appVersion': appVersion,
+      };
+
+  String fingerprint() => '$name|$apiOs|$osVersion|$appVersion';
 }
 
 class DeviceInfoService {

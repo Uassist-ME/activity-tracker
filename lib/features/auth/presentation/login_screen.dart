@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'dart:async';
+import 'dart:developer' as developer;
+
 import 'package:activity_tracker/features/auth/data/auth_api.dart';
 import 'package:activity_tracker/features/auth/data/auth_storage.dart';
+import 'package:activity_tracker/features/devices/data/device_api.dart';
 import 'package:activity_tracker/features/tracker/presentation/tracker_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
   final _auth = AuthApi();
   final _storage = AuthStorage();
+  final _deviceApi = DeviceApi();
 
   String? _errorText;
   bool _loading = false;
@@ -25,6 +30,20 @@ class _LoginScreenState extends State<LoginScreen> {
     _email.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  Future<void> _registerDevice(String token) async {
+    final result = await _deviceApi.registerCurrent(token: token);
+    switch (result) {
+      case DeviceRegisterSuccess():
+      case DeviceRegisterSkipped():
+        break;
+      case DeviceRegisterFailure(:final message, :final statusCode):
+        developer.log(
+          'Device registration failed (status=$statusCode): $message',
+          name: 'auth.login',
+        );
+    }
   }
 
   Future<void> _submit() async {
@@ -45,6 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
     switch (result) {
       case LoginSuccess(:final token):
         await _storage.saveToken(token);
+        unawaited(_registerDevice(token));
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const TrackerScreen()),
