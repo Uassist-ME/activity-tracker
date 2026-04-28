@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C c:/Users/Telmy/flutter/activity-tracker diff --stat)",
+      "Bash(git -C c:/Users/Telmy/flutter/activity-tracker ls-files --others --exclude-standard)",
+      "Bash(git -C c:/Users/Telmy/flutter/activity-tracker check-ignore -v .claude/settings.json)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}
