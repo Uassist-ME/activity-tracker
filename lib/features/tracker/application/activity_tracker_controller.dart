@@ -1,20 +1,35 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 
+import 'package:activity_tracker/features/auth/data/auth_storage.dart';
+import 'package:activity_tracker/features/tracker/data/activity_event_api.dart';
 import 'package:activity_tracker/features/tracker/data/focus_tracker_channel.dart';
 import 'package:activity_tracker/features/tracker/domain/activity_event.dart';
 
 class ActivityTrackerController extends ChangeNotifier {
-  ActivityTrackerController({FocusTrackerChannel? channel})
-      : _channel = channel ?? FocusTrackerChannel();
+  ActivityTrackerController({
+    FocusTrackerChannel? channel,
+    ActivityEventApi? eventApi,
+    AuthStorage? storage,
+  })  : _channel = channel ?? FocusTrackerChannel(),
+        _eventApi = eventApi ?? ActivityEventApi(),
+        _storage = storage ?? AuthStorage();
 
   static const _pollInterval = Duration(seconds: 2);
+  static const _flushInterval = Duration(seconds: 30);
 
   final FocusTrackerChannel _channel;
+  final ActivityEventApi _eventApi;
+  final AuthStorage _storage;
+
   final List<ActivityEvent> _events = [];
+  final List<ActivityEvent> _unsent = [];
 
   Timer? _ticker;
+  Timer? _flushTimer;
+  bool _flushing = false;
   bool _running = false;
 
   // Currently-open session (not yet pushed into _events).
@@ -52,6 +67,7 @@ class ActivityTrackerController extends ChangeNotifier {
   Future<void> start() async {
     if (_running) return;
     _events.clear();
+    _unsent.clear();
     _openSample = null;
     _openStart = null;
     _lastTick = null;
@@ -59,6 +75,7 @@ class ActivityTrackerController extends ChangeNotifier {
     notifyListeners();
     await _tick();
     _ticker = Timer.periodic(_pollInterval, (_) => _tick());
+    _flushTimer = Timer.periodic(_flushInterval, (_) => _flush());
   }
 
   Future<void> stop() async {
@@ -66,15 +83,34 @@ class ActivityTrackerController extends ChangeNotifier {
     _running = false;
     _ticker?.cancel();
     _ticker = null;
+    _flushTimer?.cancel();
+    _flushTimer = null;
     _closeOpen(DateTime.now());
     notifyListeners();
+    await _flush();
+  }
 
-    // TODO(endpoint): enable when ${API_URL}/events exists.
-    // try {
-    //   await ActivityApi().postEvents(_events);
-    // } catch (_) {
-    //   // Swallow for now; retry/queue strategy to be designed when endpoint lands.
-    // }
+  Future<void> _flush() async {
+    if (_flushing) return;
+    if (_unsent.isEmpty) return;
+    final sessionId = await _storage.getSessionId();
+    if (sessionId == null || sessionId.isEmpty) return;
+
+    _flushing = true;
+    try {
+      final batch = _unsent
+          .take(ActivityEventApi.maxBatchSize)
+          .toList(growable: false);
+      await _eventApi.postBatch(sessionId: sessionId, events: batch);
+      _unsent.removeRange(0, batch.length);
+    } catch (e) {
+      developer.log(
+        'activity-events flush failed; will retry next tick: $e',
+        name: 'tracker.flush',
+      );
+    } finally {
+      _flushing = false;
+    }
   }
 
   Future<void> _tick() async {
@@ -103,17 +139,17 @@ class ActivityTrackerController extends ChangeNotifier {
     final open = _openSample;
     final start = _openStart;
     if (open == null || start == null) return;
-    _events.add(
-      ActivityEvent(
-        app: open.app,
-        title: open.title,
-        detail: open.detail,
-        url: open.url,
-        domain: open.domain,
-        startedAt: start,
-        endedAt: end,
-      ),
+    final event = ActivityEvent(
+      app: open.app,
+      title: open.title,
+      detail: open.detail,
+      url: open.url,
+      domain: open.domain,
+      startedAt: start,
+      endedAt: end,
     );
+    _events.add(event);
+    _unsent.add(event);
     _openSample = null;
     _openStart = null;
   }
@@ -121,6 +157,7 @@ class ActivityTrackerController extends ChangeNotifier {
   @override
   void dispose() {
     _ticker?.cancel();
+    _flushTimer?.cancel();
     super.dispose();
   }
 }
