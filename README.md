@@ -68,6 +68,17 @@ Output: `ActivityTrackerApp.dmg` in the current directory.
 
 > Note: the app inside the DMG is named `activity_tracker.app` (Flutter's default). To rename it to `ActivityTracker.app`, update `CFBundleName` in `macos/Runner/Info.plist`.
 
+#### Installing a new version
+
+The app is ad-hoc signed, so macOS treats every rebuild as a new app and ignores the previously granted Accessibility / Automation permissions. Before installing a new DMG, fully quit the running app and reset its TCC entries:
+
+```bash
+tccutil reset Accessibility com.example.activityTracker
+tccutil reset AppleEvents   com.example.activityTracker
+```
+
+Then replace `/Applications/activity_tracker.app` with the new build and launch it — macOS will prompt for permissions fresh.
+
 ### Windows
 
 ```bash

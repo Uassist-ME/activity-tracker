@@ -13,7 +13,13 @@ class FocusSample {
 
   String get identity => '$app|$title|${url ?? ''}';
 
-  String get detail => _stripAppSuffix(title);
+  String get detail {
+    final cleaned = _stripAppSuffix(title);
+    if (cleaned.isEmpty && url != null && url!.isNotEmpty) {
+      return url!;
+    }
+    return cleaned;
+  }
 
   String? get domain {
     final raw = url?.trim();
